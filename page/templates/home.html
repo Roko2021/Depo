@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellcom</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+    <form action="" method="POST">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+        <div>
+            <h1>بسم الله الرحمن الرحيم</h1>
+            <h2>تجربه اخذ نص من النصوص ووضعه فى عنصر لاستخدامه مره اخرى</h2>
+            <h3>لنجرب هنا
+                <p id="text-to-save">هذه هى الكلمه المراد اخذها</p>
+            </h3>
+            <div id="saved-text-container">
+                <!-- فى حاله وجود نص يعرضه والا فلا -->
+                <p>{{ savetext }}</p>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        let timeout;
+        let savedTexts = []; // علشان اعرف هل موجود فى الداتا بيز ولا لا
+        let hasShownMessage = false; // علشان ميكررش انه يشوف فى الداتا بيز علشان ميبطش الصفحه
+
+        // بدايه الكود
+        $('#text-to-save').on('mouseenter', function() {
+            timeout = setTimeout(function() {
+                let text = $('#text-to-save').text();
+
+                // هل p موجود فى savedTexts ولا لا
+                if (!savedTexts.includes(text)) {
+                    saveTextToDatabase(text); // ارسال النص الى الداتا بيز
+                } else {
+                    // عرض الرساله فى الكونسول
+                    if (!hasShownMessage) {
+                        console.log('النص موجود بالفعل في الذاكرة، لن يتم إضافته مرة أخرى');
+                        hasShownMessage = true; // التحقق من عدم تكرار الطلب من الخادم
+                    }
+                }
+            }, 3000); // 3 ثواني
+        });
+
+        // فى حاله الخروج من p يلغى كل شئ
+        $('#text-to-save').on('mouseleave', function() {
+            clearTimeout(timeout);
+        });
+
+        // ارسال النص الى SQL 
+        function saveTextToDatabase(text) {
+            $.ajax({
+                url: '/save/', // العنوان
+                method: 'POST',
+                data: {
+                    'text': text,
+                    'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val() // الحمايه
+                },
+                success: function(response) {
+                    console.log('تم حفظ النص في قاعدة البيانات:', response);
+                    // اضافه النص الى savedTexts واضافته كمان الى الداتا بيز
+                    if (response.text) {
+                        savedTexts.push(response.text);
+                        $('#saved-text-container').append('<p>' + response.text + '</p>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('حدث خطأ أثناء حفظ النص:', error);
+                }
+            });
+        }
+
+        // الحصول على النصوص المحفوظه من الداتا بيز
+        $(document).ready(function() {
+            $.ajax({
+                url: '/save/',
+                method: 'GET',
+                success: function(response) {
+                    console.log('تم جلب النصوص المحفوظة:', response);
+                    // عرض النصوص
+                    if (response.texts) {
+                        response.texts.forEach(function(text) {
+                            savedTexts.push(text); // اضافه النصوص الى savedTexts لعرضها
+                            $('#saved-text-container').append('<p>' + text + '</p>');
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('حدث خطأ أثناء جلب النص:', error);
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
